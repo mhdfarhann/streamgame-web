@@ -1,4 +1,3 @@
-// app/auth/callback/route.ts
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
@@ -11,10 +10,10 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error && data.user) {
-      // Sync user ke tabel public.users kita
+      // Sync user ke tabel public.users
       await supabase.from("users").upsert(
         {
-          id: data.user.id,        // pakai ID yang sama dari auth.users
+          id: data.user.id,
           email: data.user.email!,
           name: data.user.user_metadata?.full_name,
           avatar_url: data.user.user_metadata?.avatar_url,
