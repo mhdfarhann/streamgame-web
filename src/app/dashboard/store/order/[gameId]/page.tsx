@@ -6,26 +6,23 @@ import OrderClient from "./orderClient"
 export default async function OrderPage({
   params,
 }: {
-  params: { gameId: string }
+  params: Promise<{ gameId: string }>
 }) {
+  const { gameId } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect("/auth/login")
-  }
+  if (!user) redirect("/auth/login")
 
   const { data: game } = await supabase
     .from("games")
     .select("*")
-    .eq("id", params.gameId)
+    .eq("id", gameId)
     .single()
 
-  if (!game) {
-    redirect("/dashboard/store")
-  }
+  if (!game) redirect("/dashboard/store")
 
-  // Cek sudah punya atau belum
+  // Sudah punya → langsung ke dashboard
   const { data: existing } = await supabase
     .from("purchases")
     .select("id")
@@ -33,11 +30,10 @@ export default async function OrderPage({
     .eq("game_id", game.id)
     .single()
 
-  if (existing) {
-    redirect("/dashboard")
-  }
+  if (existing) redirect("/dashboard")
 
-  // Cek order pending yang sudah ada
+  // Cek order pending yang sudah ada, kalau belum ada buat baru
+  let order = null
   const { data: existingOrder } = await supabase
     .from("orders")
     .select("*")
@@ -46,9 +42,9 @@ export default async function OrderPage({
     .eq("status", "pending")
     .single()
 
-  // Kalau belum ada order, buat baru
-  let order = existingOrder
-  if (!order) {
+  if (existingOrder) {
+    order = existingOrder
+  } else {
     const { data: newOrder } = await supabase
       .from("orders")
       .insert({
@@ -58,7 +54,6 @@ export default async function OrderPage({
       })
       .select()
       .single()
-
     order = newOrder
   }
 
@@ -82,7 +77,7 @@ export default async function OrderPage({
         <div>
           <h1 className="text-2xl font-semibold">Selesaikan Pembayaran</h1>
           <p className="text-gray-400 text-sm mt-1">
-            Scan QR di bawah untuk membayar
+            Scan QRIS di bawah untuk membayar
           </p>
         </div>
 
@@ -98,23 +93,22 @@ export default async function OrderPage({
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Order ID</span>
-            <span className="font-mono text-xs text-gray-500">{order?.id.slice(0, 8)}</span>
+            <span className="font-mono text-xs text-gray-500">
+              {order?.id.slice(0, 8).toUpperCase()}
+            </span>
           </div>
         </div>
 
         {/* QR Code */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 flex flex-col items-center gap-4">
           <p className="text-sm text-gray-400">Scan QRIS berikut:</p>
-
-          {/* Ganti src ini dengan gambar QRIS kamu */}
-          <div className="w-48 h-48 bg-white rounded-xl flex items-center justify-center">
+          <div className="w-52 h-52 bg-white rounded-xl flex items-center justify-center p-2">
             <img
               src="/qris.png"
               alt="QRIS StreamGame"
-              className="w-44 h-44 object-contain"
+              className="w-full h-full object-contain"
             />
           </div>
-
           <div className="text-center space-y-1">
             <p className="text-sm font-medium">StreamGame</p>
             <p className="text-xs text-gray-400">
@@ -126,18 +120,17 @@ export default async function OrderPage({
         {/* Instruksi */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
           <p className="text-sm font-medium">Cara bayar:</p>
-          <ol className="space-y-2 text-sm text-gray-400 list-decimal list-inside">
+          <ol className="space-y-2 text-sm text-gray-400 list-decimal list-inside leading-relaxed">
             <li>Buka aplikasi mobile banking atau e-wallet kamu</li>
             <li>Pilih menu Scan QR / QRIS</li>
             <li>Scan QR di atas dan bayar {formatPrice(game.price)}</li>
             <li>Upload bukti pembayaran di bawah</li>
-            <li>Tunggu konfirmasi admin (biasanya &lt; 1 jam)</li>
+            <li>Tunggu konfirmasi admin (biasanya kurang dari 1 jam)</li>
           </ol>
         </div>
 
         {/* Upload bukti */}
         <OrderClient orderId={order?.id ?? ""} />
-
       </main>
     </div>
   )

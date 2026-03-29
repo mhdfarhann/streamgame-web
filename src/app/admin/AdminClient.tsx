@@ -1,6 +1,6 @@
+// app/admin/AdminClient.tsx - VERSI AMAN
 "use client"
 import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 
 type Order = {
   id: string
@@ -34,58 +34,26 @@ export default function AdminClient({ orders }: { orders: Order[] }) {
       minute: "2-digit",
     })
 
-  const handleConfirm = async (order: Order) => {
-    setLoadingId(order.id)
-    const supabase = createClient()
+  const handleAction = async (orderId: string, action: "confirm" | "reject") => {
+    setLoadingId(orderId)
 
-    await supabase
-      .from("orders")
-      .update({ status: "confirmed", confirmed_at: new Date().toISOString() })
-      .eq("id", order.id)
+    const res = await fetch("/api/admin/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId, action }),
+    })
 
-    await supabase.from("purchases").upsert(
-      {
-        user_id: order.user_id,
-        game_id: order.game_id,
-        amount_paid: order.amount,
-        order_id: order.id,
-      },
-      { onConflict: "order_id" }
-    )
+    const { error } = await res.json()
 
-    const { data: existingWidget } = await supabase
-      .from("widgets")
-      .select("id")
-      .eq("user_id", order.user_id)
-      .eq("game_id", order.game_id)
-      .single()
-
-    if (!existingWidget) {
-      await supabase.from("widgets").insert({
-        user_id: order.user_id,
-        game_id: order.game_id,
-        name: "Widget " + order.games?.slug,
-        config: { items: [], theme: "dark" },
-      })
+    if (error) {
+      alert("Gagal: " + error)
+      setLoadingId(null)
+      return
     }
 
+    const newStatus = action === "confirm" ? "confirmed" : "rejected"
     setList((prev) =>
-      prev.map((o) => (o.id === order.id ? { ...o, status: "confirmed" } : o))
-    )
-    setLoadingId(null)
-  }
-
-  const handleReject = async (orderId: string) => {
-    setLoadingId(orderId)
-    const supabase = createClient()
-
-    await supabase
-      .from("orders")
-      .update({ status: "rejected" })
-      .eq("id", orderId)
-
-    setList((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: "rejected" } : o))
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     )
     setLoadingId(null)
   }
@@ -124,7 +92,7 @@ export default function AdminClient({ orders }: { orders: Order[] }) {
               {formatDate(order.created_at)}
             </p>
             {order.proof_url && (
-              <a 
+              <a
                 href={order.proof_url}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -138,14 +106,14 @@ export default function AdminClient({ orders }: { orders: Order[] }) {
           {order.status === "pending" && (
             <div className="flex gap-2 shrink-0">
               <button
-                onClick={() => handleConfirm(order)}
+                onClick={() => handleAction(order.id, "confirm")}
                 disabled={loadingId === order.id}
                 className="text-sm bg-green-600 hover:bg-green-500 disabled:opacity-50 px-4 py-2 rounded-lg transition"
               >
                 {loadingId === order.id ? "..." : "Konfirmasi"}
               </button>
               <button
-                onClick={() => handleReject(order.id)}
+                onClick={() => handleAction(order.id, "reject")}
                 disabled={loadingId === order.id}
                 className="text-sm bg-red-600/30 hover:bg-red-600/50 disabled:opacity-50 px-4 py-2 rounded-lg transition"
               >

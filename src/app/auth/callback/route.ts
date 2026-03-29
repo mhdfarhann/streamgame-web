@@ -7,19 +7,22 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient()
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (!error && data.user) {
-      // Sync user ke tabel public.users
-      await supabase.from("users").upsert(
-        {
-          id: data.user.id,
-          email: data.user.email!,
-          name: data.user.user_metadata?.full_name,
-          avatar_url: data.user.user_metadata?.avatar_url,
-        },
-        { onConflict: "id" }
-      )
+    if (!error) {
+      // Cek role user
+      const { data: { user } } = await supabase.auth.getUser()
+
+      const { data: userData } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user!.id)
+        .single()
+
+      // Redirect berdasarkan role
+      if (userData?.role === "admin") {
+        return NextResponse.redirect(`${origin}/admin`)
+      }
 
       return NextResponse.redirect(`${origin}/dashboard`)
     }
