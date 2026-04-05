@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  reactCompiler: true,
-  allowedDevOrigins: ['kentucky-squad-after-analysis.trycloudflare.com'],
+  devIndicators: false,
+  allowedDevOrigins: ['overlaygame.site', 'socket.overlaygame.site'],
 };
 
 export default nextConfig;

@@ -1,5 +1,5 @@
-import { createPublicClient } from "@/lib/supabase/public"  // ← ganti import
-import SpinWheelOverlay from "./SpinWheelOverlay"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 
 export default async function OverlayPage({
   params,
@@ -7,26 +7,15 @@ export default async function OverlayPage({
   params: Promise<{ widgetId: string }>
 }) {
   const { widgetId } = await params
-  const supabase = createPublicClient()  // ← pakai public client
+  const supabase = await createClient()
 
-  const { data: widget, error } = await supabase
+  const { data: widget } = await supabase
     .from("widgets")
     .select("*, games(slug)")
     .eq("id", widgetId)
-    .maybeSingle()
+    .single()
 
-  if (!widget) {
-    return (
-      <div style={{ color: "red", fontSize: "24px", padding: "20px" }}>
-        Widget not found. Error: {error?.message ?? "no widget"}
-      </div>
-    )
-  }
+  if (!widget) redirect("/")
 
-  return (
-    <SpinWheelOverlay
-      widgetId={widgetId}
-      items={widget.config?.items ?? []}
-    />
-  )
+  redirect("/games/" + widget.games?.slug + "/overlay?widgetId=" + widgetId)
 }
